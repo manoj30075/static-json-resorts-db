@@ -1,0 +1,35 @@
+name: Resort‑DB‑Pipeline‑Status
+
+on:
+  workflow_dispatch:   # lets you run it manually
+  schedule:
+    - cron:  '*/15 * * * *'   # every 15 min
+
+jobs:
+  update-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch latest pipeline status
+        run: |
+          curl -s https://status.ski-db.local/latest.json -o status.json
+
+      - name: Commit & push
+        env:
+          GIT_AUTHOR_NAME: Resorts‑Bot
+          GIT_AUTHOR_EMAIL: bot@noreply.ski-db.local
+          GIT_COMMITTER_NAME: Resorts‑Bot
+          GIT_COMMITTER_EMAIL: bot@noreply.ski-db.local
+          TOKEN: ${{ secrets.RESORTS_DB_TOKEN }}
+        run: |
+          git config --global user.name  "Resorts‑Bot"
+          git config --global user.email "bot@noreply.ski-db.local"
+          if [ -f status.json ]; then
+            mv status.json build_status.json
+            git add build_status.json
+            # commit only if changed
+            git diff --cached --quiet || git commit -m "Auto‑update build_status.json"
+            git push https://$TOKEN@github.com/${{ github.repository }}.git HEAD:main
+          fi
